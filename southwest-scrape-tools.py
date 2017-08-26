@@ -64,9 +64,13 @@ def fetch_flight_data(webdriver):
         # get departure time
         depart_time = elem.find('td', {'class':'depart_column'}).find('span', {'class','bugText'}).get_text()
 
+        print 'departure time: ' + depart_time
+
         # get arrival time
         arrive_time = soup.find('td', {'class':'arrive_column'}).find('span', {'class','bugText'}).get_text()
         arrive_time = arrive_time.replace('\n', ' ').strip() # clean up
+
+        print 'arrival time: ' + arrive_time
 
         # get flight number(s)
         flight_info = soup.find('td', {'class':'flight_column'})
@@ -80,7 +84,23 @@ def fetch_flight_data(webdriver):
             
             flight_num, plane_type, seat_num = parse_flight_info(flight_info.text)
             flight_info_dict[index] = [flight_num, plane_type, seat_num]
-            
+
+        for key in flight_info_dict.keys():
+            print 'flight number: ' + flight_info_dict[key][0]
+            print 'plane type: ' + flight_info_dict[key][1]
+            print 'number seats: ' + flight_info_dict[key][2]
+
+        # get number of  connecting stops
+        connect_num = soup.find('div', {'class':'flightDetailsContainer'}).find('span', {'class':'headerText'})
+        connect_num = connect_num.text.strip('(').split()[0]
+        
+        # get connecting stops
+        connecting_stops = parse_routing_info(soup.find('table', {'class':'routingDetailsContainer'}), int(connect_num))
+
+
+
+
+
 
 # helper function to get flight #, aircraft type, # seats from flight info
 def parse_flight_info(flight_info_text):
@@ -98,6 +118,30 @@ def parse_flight_info(flight_info_text):
     seat_num = flight_info_list[flight_info_list.index('Seats:')+1]
 
     return flight_num, plane_type, seat_num
+
+# parse routing info, have to input routing info table
+def parse_routing_info(routing_table, num_stops):
+    
+    stop_list = []
+    
+    try:
+        plane_change = routing_table.find_all('span', {'class':'routingDetailsChangePlanesText'})
+        plane_change = [z.text for z in plane_change if ',' in z.text][0].strip()
+        stop_list.append(plane_change)
+
+    except IndexError:
+        pass
+
+    # if we didn't get a stop with plane change info or are looking at a 2 stop flight
+    if len(stop_list) < num_stops:
+        stop_list.append(routing_table.find('div', {'class':'additionalStopList'}).text.strip())
+
+    return stop_list
+    
+
+
+
+
 '''
 def 
 
