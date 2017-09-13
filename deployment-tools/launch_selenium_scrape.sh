@@ -24,7 +24,7 @@ fi
 
 if [[ "$(sudo docker ps -q -f ancestor=danielfrg/selenium)" == "" ]]; then
     echo "Starting Selenium container..."
-    sudo docker run -d -p 4444:4444 danielfrg/selenium > /dev/null
+    sudo docker run -d -v /dev/shm:/dev/shm -p 4444:4444 danielfrg/selenium > /dev/null
 else
     echo "Selenium container already running"
 fi
@@ -38,21 +38,32 @@ CONTAINER="$(sudo docker ps -q -f ancestor=danielfrg/selenium)"
 # first match and then quit
 # notice that unlike how suggested at `https://stackoverflow.com/questions/21001220/bash-sequence-wait-for-output-then-start-next-program` we do not `cat <&3` or else will print our `timeout` kill output
 exec 3< <(timeout -k 2m 2m sudo docker logs -f $CONTAINER 2>&1 || ([[ $? -eq 137 || $? -eq 124 ]] && echo TERMINATED))
+PID=$! #get PID to kill above process before we exit
 OUTPUT=`sed -n "/.*\(Selenium Server is up and running$\|TERMINATED$\).*/{s//\1/p;q}" <&3`
 
 # if we terminated before Selenium ready exit w/ failure
 if [[ "$OUTPUT" == "TERMINATED" ]]; then
     echo "Unsuccessful Selenium boot...killing container"
+    kill -9 $PID
     sudo docker kill $CONTAINER
     exit 1
 
 elif [[ "$OUTPUT" == "Selenium Server is up and running" ]]; then
     echo "Successful Boot"
+    # KILL our docker log process or else it gets terminated after script finishes
+    #kill -9 $PID1
+    kill -9 $PID
 
 else 
     echo "unmatched value from OUTPUT variable"
 fi
 
 # get IPAddress of our Selenium container
+IPAddress=`sudo docker inspect $CONTAINER | grep -wm1 IPAddress | cut -d '"' -f 4`
+# manual process to build connection address should in future
+# be replaced with process to find "20:09:25.026 INFO - RemoteWebDriver instances should connect to: http://127.0.0.1:4444/wd/hub"
+# an extract address
+IPAddress="$IPAddress:4444/wd/hub"
+echo $IPAddress
 
-
+python southwest-scrape-tools.py $IPAddress
